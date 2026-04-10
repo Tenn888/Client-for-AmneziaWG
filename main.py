@@ -1,7 +1,7 @@
 from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, QVBoxLayout, QWidget
 
-import sys
+import sys, os
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -14,11 +14,17 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(main_field)
 
         self.list_vpn = QListWidget()
-        self.list_vpn.addItem("VPN 1")
-        self.list_vpn.addItem("VPN 2")
+        self.load_vpn_list()
 
         vbox = QVBoxLayout(main_field)
         vbox.addWidget(self.list_vpn)
+
+    def load_vpn_list(self):
+        directory = "/etc/amnezia/amneziawg"
+        if os.path.exists(directory):
+            for filename in os.listdir(directory):
+                if filename.endswith(".conf"):
+                    self.list_vpn.addItem(filename)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
