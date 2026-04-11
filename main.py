@@ -1,7 +1,7 @@
 from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, QVBoxLayout, QWidget
 
-import sys, os
+import sys, os, subprocess
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -20,11 +20,13 @@ class MainWindow(QMainWindow):
         vbox.addWidget(self.list_vpn)
 
     def load_vpn_list(self):
-        directory = "/etc/amnezia/amneziawg"
-        if os.path.exists(directory):
-            for filename in os.listdir(directory):
-                if filename.endswith(".conf"):
-                    self.list_vpn.addItem(filename)
+        d = subprocess.run(["sudo", "ls", "/etc/amnezia/amneziawg"], capture_output=True, text=True)
+        for filename in d.stdout.strip().split('\n'):
+            if filename.endswith(".conf"):
+                self.list_vpn.addItem(filename)
+
+    def info_vpn(self):
+        pass
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
