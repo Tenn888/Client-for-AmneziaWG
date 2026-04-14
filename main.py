@@ -1,7 +1,10 @@
 from PyQt6.QtCore import QSize
-from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, QVBoxLayout, QHBoxLayout, QWidget, QTextEdit
+from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, QHBoxLayout, QWidget, QTextEdit, QPushButton
+from re import search
 
-import sys, os, subprocess
+import sys, subprocess
+
+status = "Включить VPN"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -23,7 +26,12 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.list_vpn)
         layout.addWidget(self.info_vpn)
 
-        self.list_vpn.itemClicked.connect(self.load_info_vpn)
+        if status != "Включить VPN":
+            status = "Отключить VPN"
+        else:
+            status = "Включить VPN"
+
+        self.list_vpn.itemClicked.connect(lambda: self.load_info_vpn(layout, status))
 
     def load_vpn_list(self):
         d = subprocess.run(
@@ -34,7 +42,7 @@ class MainWindow(QMainWindow):
         for filename in d.stdout.strip().split('\n'):
             self.list_vpn.addItem(filename)
 
-    def load_info_vpn(self):
+    def load_info_vpn(self, layout, status):
         item = self.list_vpn.currentItem()
         if item is not None:
             filename = item.text()
@@ -43,7 +51,47 @@ class MainWindow(QMainWindow):
                 capture_output=True,
                 text=True
             )
-            self.info_vpn.setText(d.stdout)
+
+            private_key = search(r'PrivateKey\s*=\s*(\S+)', d.stdout)
+            mtu = search(r'MTU\s*=\s*(\S+)', d.stdout)
+            address = search(r'Address\s*=\s*(\S+)', d.stdout)
+            endpoint = search(r'Endpoint\s*=\s*(\S+)', d.stdout)
+            public_key = search(r'PublicKey\s*=\s*(\S+)', d.stdout)
+            dns = search(r'DNS\s*=\s*(\S+)', d.stdout)
+            allowed_ips = search(r'AllowedIPs\s*=\s*(\S+)', d.stdout)
+
+            if not all([private_key, mtu, address, endpoint, public_key, dns, allowed_ips]):
+                return None
+
+            info = f"Интерфейс: {filename.partition('.')[0]}\n"
+            info += f"Статус подключения: {'Отключен'}\n"
+            info += f"Приватный ключ: {private_key.group(1)}\n"
+            info += f"MTU: {mtu.group(1)}\n"
+            info += f"IP-адреса: {address.group(1)}\n"
+            info += f"DNS: {dns.group(1)}\n"
+
+            info += f"Публичный ключ: {public_key.group(1)}\n"
+            info += f"Разрешенные IP-адреса: {allowed_ips.group(1)}\n"
+            info += f"IP-адреса сервера: {endpoint.group(1)}\n"
+            self.info_vpn.setText(info)
+
+            self.button_vpn = QPushButton(status)
+            layout.addWidget(self.button_vpn)
+            self.button_vpn.clicked.connect(lambda: self.enable_vpn(status))
+
+    def enable_vpn(self, status):
+        item = self.list_vpn.currentItem()
+        if item is not None:
+            filename = item.text()
+            if status == "Включить VPN":
+                subprocess.run(["sudo", "awg-quick", "up", f"/etc/amnezia/amneziawg/{filename}"])
+                status = "Отключить VPN"
+                self.button_vpn.setText(status)
+            else:
+                subprocess.run(["sudo", "awg-quick", "down", f"/etc/amnezia/amneziawg/{filename}"])
+                status = "Включить VPN"
+                self.button_vpn.setText(status)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
