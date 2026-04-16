@@ -4,7 +4,9 @@ from re import search
 
 import sys, subprocess
 
-status = "Включить VPN"
+VPN_DIR = "/etc/amnezia/amneziawg"
+VPN_ON = "Отключить VPN"
+VPN_OFF = "Включить VPN"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -26,12 +28,17 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.list_vpn)
         layout.addWidget(self.info_vpn)
 
-        if status != "Включить VPN":
-            status = "Отключить VPN"
-        else:
-            status = "Включить VPN"
+        self.list_vpn.itemClicked.connect(lambda: self.load_info_vpn(layout))
 
-        self.list_vpn.itemClicked.connect(lambda: self.load_info_vpn(layout, status))
+    def check_status_vpn(self):
+        status = subprocess.check_output(["sudo", "awg", "show"], universal_newlines=True)
+
+        if "interface: " in status:
+            status = VPN_ON
+        else:
+            status = VPN_OFF
+
+        return status
 
     def load_vpn_list(self):
         d = subprocess.run(
@@ -42,12 +49,12 @@ class MainWindow(QMainWindow):
         for filename in d.stdout.strip().split('\n'):
             self.list_vpn.addItem(filename)
 
-    def load_info_vpn(self, layout, status):
+    def load_info_vpn(self, layout):
         item = self.list_vpn.currentItem()
         if item is not None:
             filename = item.text()
             d = subprocess.run(
-                ["sudo", "cat", f"/etc/amnezia/amneziawg/{filename}"],
+                ["sudo", "cat", f"{VPN_DIR}/{filename}"],
                 capture_output=True,
                 text=True
             )
@@ -75,21 +82,24 @@ class MainWindow(QMainWindow):
             info += f"IP-адреса сервера: {endpoint.group(1)}\n"
             self.info_vpn.setText(info)
 
+            status = self.check_status_vpn()
             self.button_vpn = QPushButton(status)
+            self.button_vpn.setFixedWidth(150)
             layout.addWidget(self.button_vpn)
-            self.button_vpn.clicked.connect(lambda: self.enable_vpn(status))
+            self.button_vpn.clicked.connect(self.enable_and_disable_vpn)
 
-    def enable_vpn(self, status):
+    def enable_and_disable_vpn(self):
         item = self.list_vpn.currentItem()
         if item is not None:
             filename = item.text()
-            if status == "Включить VPN":
-                subprocess.run(["sudo", "awg-quick", "up", f"/etc/amnezia/amneziawg/{filename}"])
-                status = "Отключить VPN"
+            status = self.check_status_vpn()
+            if status == VPN_OFF:
+                subprocess.run(["sudo", "awg-quick", "up", f"{VPN_DIR}/{filename}"])
+                status = self.check_status_vpn()
                 self.button_vpn.setText(status)
-            else:
-                subprocess.run(["sudo", "awg-quick", "down", f"/etc/amnezia/amneziawg/{filename}"])
-                status = "Включить VPN"
+            elif status == VPN_ON:
+                subprocess.run(["sudo", "awg-quick", "down", f"{VPN_DIR}/{filename}"])
+                status = self.check_status_vpn()
                 self.button_vpn.setText(status)
 
 
