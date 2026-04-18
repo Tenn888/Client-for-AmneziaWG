@@ -10,6 +10,7 @@ VPN_OFF = "Включить VPN"
 VPN_STATUS = "Статус подключения: {}"
 VPN_STATUS_ON = "Подключен к VPN"
 VPN_STATUS_OFF = "Не подключен к VPN"
+ENABLE_ANOTHER_VPN = "Включить другой VPN"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -24,6 +25,8 @@ class MainWindow(QMainWindow):
         self.list_vpn.setFixedWidth(200)
         self.load_vpn_list()
 
+        self.active_vpn_name = None
+
         self.info_vpn = QTextEdit()
         self.info_vpn.setReadOnly(True)
 
@@ -34,6 +37,7 @@ class MainWindow(QMainWindow):
 
         self.button_vpn = QPushButton("")
         self.button_vpn.setFixedWidth(150)
+        self.button_vpn.setEnabled(False)
         self.button_vpn.clicked.connect(self.enable_and_disable_vpn)
 
         layout = QHBoxLayout(main_field)
@@ -51,14 +55,62 @@ class MainWindow(QMainWindow):
 
         self.list_vpn.itemClicked.connect(self.load_info_vpn)
 
+    def interface_name_from_filename(self, filename):
+        return filename.partition(".")[0]
+
+    def selected_vpn_name(self):
+        item = self.list_vpn.currentItem()
+        if item is None:
+            return None
+        return item.text()
+
+    def refresh_controls(self, selected_filename):
+        status = self.check_status_vpn()
+        active_interface = self.look_another_vpn()
+
+        if active_interface is None:
+            self.status_vpn.setText(VPN_STATUS.format(VPN_STATUS_OFF))
+        else:
+            self.status_vpn.setText(VPN_STATUS.format(active_interface))
+
+        self.button_vpn.setEnabled(True)
+        selected_interface = self.interface_name_from_filename(selected_filename)
+
+        if status == VPN_STATUS_OFF:
+            self.button_vpn.setText(VPN_OFF)
+        elif active_interface == selected_interface:
+            self.button_vpn.setText(VPN_ON)
+        else:
+            self.button_vpn.setText(ENABLE_ANOTHER_VPN)
+
     def check_status_vpn(self):
-        status = subprocess.check_output(["sudo", "awg", "show"], universal_newlines=True)
+        status = self.receiving_vpn()
 
         if "interface: " in status:
             status = VPN_STATUS_ON
         else:
             status = VPN_STATUS_OFF
 
+        return status
+    
+    def look_another_vpn(self):
+        status = self.receiving_vpn()
+
+        for line in status.splitlines():
+            line = line.strip()
+
+            if line.startswith("interface:"):
+                return line.split(":")[1].strip()
+
+        return None
+    
+    def active_vpn(self):
+        status = self.receiving_vpn()
+        filename = self.list_vpn.currentItem().text()
+        return filename
+
+    def receiving_vpn(self):
+        status = subprocess.check_output(["sudo", "awg", "show"], universal_newlines=True)
         return status
 
     def load_vpn_list(self):
@@ -68,7 +120,8 @@ class MainWindow(QMainWindow):
             text=True
         )
         for filename in d.stdout.strip().split('\n'):
-            self.list_vpn.addItem(filename)
+            if filename:
+                self.list_vpn.addItem(filename)
 
     def load_info_vpn(self):
         item = self.list_vpn.currentItem()
@@ -102,25 +155,32 @@ class MainWindow(QMainWindow):
             info += f"IP-адреса сервера: {endpoint.group(1)}\n"
             self.info_vpn.setText(info)
 
-            status = self.check_status_vpn()
-            self.status_vpn.setText(f'{VPN_STATUS.format(status)}')
-            self.button_vpn.setText(VPN_OFF if status == VPN_STATUS_OFF else VPN_ON)
+            self.refresh_controls(filename)
 
     def enable_and_disable_vpn(self):
-        item = self.list_vpn.currentItem()
-        if item is not None:
-            filename = item.text()
-            status = self.check_status_vpn()
-            if status == VPN_STATUS_OFF:
-                subprocess.run(["sudo", "awg-quick", "up", f"{VPN_DIR}/{filename}"])
-                status = self.check_status_vpn()
-                self.button_vpn.setText(VPN_ON)
-                self.status_vpn.setText(VPN_STATUS.format(VPN_STATUS_ON))
-            elif status == VPN_STATUS_ON:
+        filename = self.selected_vpn_name()
+        if filename is None:
+            return
+
+        status = self.check_status_vpn()
+        active_interface = self.look_another_vpn()
+        selected_interface = self.interface_name_from_filename(filename)
+        
+        if status == VPN_STATUS_OFF:
+            subprocess.run(["sudo", "awg-quick", "up", f"{VPN_DIR}/{filename}"])
+            self.active_vpn_name = filename
+
+        elif status == VPN_STATUS_ON:
+            if active_interface == selected_interface:
                 subprocess.run(["sudo", "awg-quick", "down", f"{VPN_DIR}/{filename}"])
-                status = self.check_status_vpn()
-                self.button_vpn.setText(VPN_OFF)
-                self.status_vpn.setText(VPN_STATUS.format(VPN_STATUS_OFF))
+                self.active_vpn_name = None
+
+            elif active_interface is not None:
+                subprocess.run(["sudo", "awg-quick", "down", f"{VPN_DIR}/{active_interface}.conf"])
+                subprocess.run(["sudo", "awg-quick", "up", f"{VPN_DIR}/{filename}"])
+                self.active_vpn_name = filename
+
+        self.refresh_controls(filename)
 
 
 if __name__ == '__main__':
