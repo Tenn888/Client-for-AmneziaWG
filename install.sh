@@ -19,7 +19,12 @@ then
     sudo pacman -S --needed git base-devel
 
     echo "[*] Клонируем yay..."
-    git clone https://aur.archlinux.org/yay.git
+    if [ -d "yay" ]; then
+        echo "[*] Репозиторий yay уже существует"
+    else
+        git clone https://aur.archlinux.org/yay.git
+    fi
+
     cd yay
 
     echo "[*] Сборка yay..."
@@ -28,11 +33,3 @@ then
     cd ..
     rm -rf yay
 fi
-
-echo "[*] Обновление базы пакетов..."
-yay -Sy
-
-echo "[*] Установка amneziawg..."
-yay -S --needed amneziawg-dkms amneziawg-tools
-
-echo "[+] Готово!"
