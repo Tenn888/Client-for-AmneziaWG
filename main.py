@@ -2,7 +2,7 @@ from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, QHBoxLayout, QVBoxLayout, QWidget, QTextEdit, QPushButton
 from re import search
 
-import sys, subprocess, os
+import sys, subprocess, os, shutil
 
 # Константы для отображения статуса VPN и управления им
 VPN_DIR = "/etc/amnezia/amneziawg"
@@ -15,12 +15,10 @@ ENABLE_ANOTHER_VPN = "Включить другой VPN"
 
 WORK_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
+
 def checking_installed_amneziawg():
-    try:
-        subprocess.run(["sudo", "awg"], capture_output=True, text=True)
-        return True
-    except subprocess.CalledProcessError:
-        return False
+    return shutil.which("awg") is not None
 
 class InstallWindow(QMainWindow):
     def __init__(self):
