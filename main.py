@@ -13,6 +13,47 @@ VPN_STATUS_ON = "Подключен к VPN"
 VPN_STATUS_OFF = "Не подключен к VPN"
 ENABLE_ANOTHER_VPN = "Включить другой VPN"
 
+def checking_installed_amneziawg():
+    try:
+        subprocess.run(["sudo", "awg"], capture_output=True, text=True)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+class InstallWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        # Настройка окна приложения
+        self.setWindowTitle("Установка AmneziaWG")
+        self.setMinimumSize(QSize(400,200))
+
+        # Создание главного виджета и установка его в качестве центрального
+        main_field = QWidget()
+        self.setCentralWidget(main_field)
+
+        # Создание виджета для отображения информации об установке и настройки его как только для чтения
+        self.info_install = QTextEdit()
+        self.info_install.setReadOnly(True)
+        self.info_install.setText("Нажмите кнопку ниже, чтобы установить AmneziaWG")
+
+        # Создание кнопки для запуска установки и подключение ее к функции установки
+        self.button_install = QPushButton("Установить")
+        self.button_install.clicked.connect(self.install_amneziawg)
+
+        # Размещение виджетов в окне с помощью вертикального компоновщика
+        layout = QVBoxLayout(main_field)
+        layout.addWidget(self.info_install)
+        layout.addWidget(self.button_install)
+
+    # Функция для запуска установки AmneziaWG и отображения результатов в виджете информации об установке
+    def install_amneziawg(self):
+        result = subprocess.run(["sudo", "bash", "install.sh"], capture_output=True, text=True)
+        if result.returncode == 0:
+            self.info_install.setText("AmneziaWG успешно установлен!")
+        else:
+            self.info_install.setText(f"Ошибка при установке AmneziaWG:\n{result.stderr}")
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -205,6 +246,11 @@ class MainWindow(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+
+    if checking_installed_amneziawg == False:
+        ix = InstallWindow()
+        ix.show()
+    
     ex = MainWindow()
     ex.show()
     app.exec()
