@@ -8,7 +8,13 @@ set -e
 if ! command -v yay &> /dev/null
 then
     echo "[!] yay не найден."
-    abort
+    echo "[*] Установка yay..."
+
+    sudo pacman -S --needed base-devel git
+    git clone https://aur.archlinux.org/yay-bin.git 
+    cd yay-bin 
+    makepkg -si
+    echo "[*] yay установлен."
 fi
 
 
@@ -17,5 +23,4 @@ yay -Sy
 
 echo "[*] Установка amneziawg..."
 yay -S amneziawg-dkms amneziawg-tools
-
-echo "[+] Готово!"
+echo "[*] amneziawg установлен."
