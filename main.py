@@ -2,7 +2,7 @@ from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, QHBoxLayout, QVBoxLayout, QWidget, QTextEdit, QPushButton
 from re import search
 
-import sys, subprocess
+import sys, subprocess, os
 
 # Константы для отображения статуса VPN и управления им
 VPN_DIR = "/etc/amnezia/amneziawg"
@@ -12,6 +12,8 @@ VPN_STATUS = "Статус подключения: {}"
 VPN_STATUS_ON = "Подключен к VPN"
 VPN_STATUS_OFF = "Не подключен к VPN"
 ENABLE_ANOTHER_VPN = "Включить другой VPN"
+
+WORK_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def checking_installed_amneziawg():
     try:
@@ -35,7 +37,7 @@ class InstallWindow(QMainWindow):
         # Создание виджета для отображения информации об установке и настройки его как только для чтения
         self.info_install = QTextEdit()
         self.info_install.setReadOnly(True)
-        self.info_install.setText("Нажмите кнопку ниже, чтобы установить AmneziaWG")
+        self.info_install.setText("Нажмите кнопку ниже, чтобы установить AmneziaWG (Откроется терминал)")
 
         # Создание кнопки для запуска установки и подключение ее к функции установки
         self.button_install = QPushButton("Установить")
@@ -48,7 +50,8 @@ class InstallWindow(QMainWindow):
 
     # Функция для запуска установки AmneziaWG и отображения результатов в виджете информации об установке
     def install_amneziawg(self):
-        result = subprocess.run(["sudo", "bash", "install.sh"], capture_output=True, text=True)
+        subprocess.run(["chmod", "+x", f"{WORK_DIR}/install.sh"])
+        result = subprocess.run([f"{WORK_DIR}/install.sh"])
         if result.returncode == 0:
             self.info_install.setText("AmneziaWG успешно установлен!")
         else:
@@ -247,7 +250,7 @@ class MainWindow(QMainWindow):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    if checking_installed_amneziawg == False:
+    if checking_installed_amneziawg() == True:
         ix = InstallWindow()
         ix.show()
     
