@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, QHBoxLayout,
 from re import search
 
 import sys, subprocess, os, shutil
+import install_module
 
 # Константы для отображения статуса VPN и управления им
 VPN_DIR = "/etc/amnezia/amneziawg"
@@ -15,45 +16,9 @@ ENABLE_ANOTHER_VPN = "Включить другой VPN"
 
 WORK_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
-
 def checking_installed_amneziawg():
     return shutil.which("awg") is not None
 
-class InstallWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-
-        # Настройка окна приложения
-        self.setWindowTitle("Установка AmneziaWG")
-        self.setMinimumSize(QSize(400,200))
-
-        # Создание главного виджета и установка его в качестве центрального
-        main_field = QWidget()
-        self.setCentralWidget(main_field)
-
-        # Создание виджета для отображения информации об установке и настройки его как только для чтения
-        self.info_install = QTextEdit()
-        self.info_install.setReadOnly(True)
-        self.info_install.setText("Нажмите кнопку ниже, чтобы установить AmneziaWG (Откроется терминал)")
-
-        # Создание кнопки для запуска установки и подключение ее к функции установки
-        self.button_install = QPushButton("Установить")
-        self.button_install.clicked.connect(self.install_amneziawg)
-
-        # Размещение виджетов в окне с помощью вертикального компоновщика
-        layout = QVBoxLayout(main_field)
-        layout.addWidget(self.info_install)
-        layout.addWidget(self.button_install)
-
-    # Функция для запуска установки AmneziaWG и отображения результатов в виджете информации об установке
-    def install_amneziawg(self):
-        subprocess.run(["chmod", "+x", f"{WORK_DIR}/install.sh"])
-        result = subprocess.run([f"{WORK_DIR}/install.sh"])
-        if result.returncode == 0:
-            self.info_install.setText("AmneziaWG успешно установлен!")
-        else:
-            self.info_install.setText(f"Ошибка при установке AmneziaWG:\n{result.stderr}")
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -248,10 +213,10 @@ class MainWindow(QMainWindow):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
 
-    if checking_installed_amneziawg() == True:
-        ix = InstallWindow()
+    if not checking_installed_amneziawg():
+        ix = install_module.InstallWindow()
         ix.show()
-    
-    ex = MainWindow()
-    ex.show()
+    else:
+        ex = MainWindow()
+        ex.show()
     app.exec()
