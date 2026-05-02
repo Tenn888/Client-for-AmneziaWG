@@ -2,6 +2,7 @@ from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QWidget, QTextEdit, QPushButton
 import os, sys, subprocess
 
+# Получение директории, в которой находится текущий скрипт
 WORK_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class InstallWindow(QMainWindow):
@@ -32,16 +33,19 @@ class InstallWindow(QMainWindow):
 
     # Функция для запуска установки AmneziaWG и отображения результатов в виджете информации об установке
     def install_amneziawg(self):
+        # Даем права на выполнение скрипта установки и запускаем его
         subprocess.run(["chmod", "+x", f"{WORK_DIR}/install.sh"])
         result = subprocess.run([f"{WORK_DIR}/install.sh"])
         if result.returncode == 0:
             self.info_install.setText("AmneziaWG успешно установлен!")
             
+            # Изменяем текст кнопки и переназначаем ее на функцию перезагрузки программы
             self.button_install.setText("Перезагрузить программу")
             self.button_install.disconnect()
             self.button_install.clicked.connect(self.reboot)
         else:
             self.info_install.setText(f"Ошибка при установке AmneziaWG:\n{result.stderr}")
     
+    # Функция для перезагрузки программы после успешной установки AmneziaWG
     def reboot(self):
         os.execv(sys.executable, [sys.executable] + sys.argv)
