@@ -1,5 +1,7 @@
 from PyQt6.QtCore import QSize
-from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, QHBoxLayout, QVBoxLayout, QWidget, QTextEdit, QPushButton
+from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, \
+QHBoxLayout, QVBoxLayout, QWidget, QTextEdit, QPushButton, QGroupBox, \
+QLabel, QFormLayout
 from re import search
 
 import sys, subprocess, os, shutil
@@ -39,10 +41,6 @@ class MainWindow(QMainWindow):
         # Инициализация переменной для хранения имени активного VPN
         self.active_vpn_name = None
 
-        # Создание виджета для отображения информации о VPN и настройки его как только для чтения
-        self.info_vpn = QTextEdit()
-        self.info_vpn.setReadOnly(True)
-
         # Создание виджета для отображения статуса VPN
         self.status_vpn = QTextEdit()
         self.status_vpn.setReadOnly(True)
@@ -56,17 +54,18 @@ class MainWindow(QMainWindow):
         self.button_vpn.clicked.connect(self.enable_and_disable_vpn)
 
         # Размещение виджетов в окне с помощью горизонтального и вертикального компоновщика
-        layout = QHBoxLayout(main_field)
-        layout.addWidget(self.list_vpn)
-        info_layout = QVBoxLayout()
-        info_layout.addWidget(self.info_vpn)
-        button_layout = QHBoxLayout()
-        button_layout.addWidget(self.status_vpn)
-        button_layout.addWidget(self.button_vpn)
+        self.layout = QHBoxLayout(main_field)
+        self.layout.addWidget(self.list_vpn)
+        self.info_layout = QVBoxLayout()
+        self.info_widgets = []
+        self.button_layout = QHBoxLayout()
+        self.button_layout.addWidget(self.status_vpn)
+        self.button_layout.addWidget(self.button_vpn)
 
         # Добавление компоновки кнопок в компоновку информации и добавление компоновки информации в главный компоновщик
-        info_layout.addLayout(button_layout)
-        layout.addLayout(info_layout)
+        self.info_layout.addStretch()
+        self.info_layout.addLayout(self.button_layout)
+        self.layout.addLayout(self.info_layout)
 
         # Подключение сигнала клика по элементу списка VPN к функции загрузки информации о выбранном VPN
         self.list_vpn.itemClicked.connect(self.load_info_vpn)
@@ -152,6 +151,7 @@ class MainWindow(QMainWindow):
     def load_info_vpn(self):
         item = self.list_vpn.currentItem()
         if item is not None:
+            self.clear_info_vpn()
             filename = item.text()
             d = subprocess.run(
                 ["sudo", "cat", f"{VPN_DIR}/{filename}"],
@@ -169,19 +169,36 @@ class MainWindow(QMainWindow):
 
             if not all([private_key, mtu, address, endpoint, public_key, dns, allowed_ips]):
                 return None
+            
+            group_1 = QGroupBox(f"Интерфейс: {filename.partition('.')[0]}")
+            group_1_layout = QFormLayout()
+            group_1.setLayout(group_1_layout)
 
-            info = f"Интерфейс: {filename.partition('.')[0]}\n"
-            info += f"Приватный ключ: {private_key.group(1)}\n"
-            info += f"MTU: {mtu.group(1)}\n"
-            info += f"IP-адреса: {address.group(1)}\n"
-            info += f"DNS: {dns.group(1)}\n"
+            group_2 = QGroupBox("Пир")
+            group_2_layout = QFormLayout()
+            group_2.setLayout(group_2_layout)
 
-            info += f"Публичный ключ: {public_key.group(1)}\n"
-            info += f"Разрешенные IP-адреса: {allowed_ips.group(1)}\n"
-            info += f"IP-адреса сервера: {endpoint.group(1)}\n"
-            self.info_vpn.setText(info)
+            group_1_layout.addRow("Приватный ключ:", QLabel(private_key.group(1)))
+            group_1_layout.addRow("MTU:", QLabel(mtu.group(1)))
+            group_1_layout.addRow("IP-адрес:", QLabel(address.group(1)))
+            group_1_layout.addRow("DNS:", QLabel(dns.group(1)))
 
+            group_2_layout.addRow("Публичный ключ:", QLabel(public_key.group(1)))
+            group_2_layout.addRow("Разрешенные IP-адреса:", QLabel(allowed_ips.group(1)))
+            group_2_layout.addRow("IP-адреса сервера:", QLabel(endpoint.group(1)))
+
+            self.info_layout.insertWidget(0, group_1)
+            self.info_layout.insertWidget(1, group_2)
+            self.info_widgets = [group_1, group_2]
+
+            # Обновляем статус VPN и состояние кнопки для выбранной конфигурации
             self.refresh_controls(filename)
+
+    # Функция для очистки ранее отображенной информации о VPN
+    def clear_info_vpn(self):
+        for widget in self.info_widgets:
+            self.info_layout.removeWidget(widget)
+            widget.deleteLater()
 
     # Функция для включения или отключения VPN в зависимости от текущего статуса подключения и выбранного VPN
     def enable_and_disable_vpn(self):
