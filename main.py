@@ -89,30 +89,36 @@ class MainWindow(QMainWindow):
 
     # Функция для импорта VPN из выбранного файла конфигурации и обновления списка VPN после импорта
     def import_vpn(self):
-        iv = import_configs.ImportConfigs(self)
-        file_path = iv.open_file_dialog()
-        if not file_path:
-            return
+        try:
+            iv = import_configs.ImportConfigs(self)
+            file_path = iv.open_file_dialog()
+            if not file_path:
+                return
 
-        # Получение расширения файла и выполнение соответствующих действий в зависимости от типа файла
-        file_extension = path.splitext(file_path)[1].lower()
+            # Получение расширения файла и выполнение соответствующих действий в зависимости от типа файла
+            file_extension = path.splitext(file_path)[1].lower()
 
-        if file_extension == ".conf":
-            self.run_command(["sudo", "cp", "-f", file_path, VPN_DIR])
-            self.load_vpn_list(path.basename(file_path))
-            return
+            if file_extension == ".conf":
+                result = self.run_command(["sudo", "cp", "-f", file_path, VPN_DIR])
+                self.load_vpn_list(path.basename(file_path))
+                return
 
-        elif file_extension == ".zip":
-            self.run_command(["sudo", "unzip", "-o", file_path, "-d", VPN_DIR])
-            self.load_vpn_list()
-            return
+            elif file_extension == ".zip":
+                result = self.run_command(["sudo", "unzip", "-o", file_path, "-d", VPN_DIR])
+                self.load_vpn_list()
+                return
 
-        else:
-            QMessageBox.warning(self, "Ошибка", "Можно импортировать только файлы .conf и .zip.")
-            return
+            else:
+                QMessageBox.warning(self, "Ошибка", "Можно импортировать только файлы .conf и .zip.")
+                return
+        except Exception as error:
+            QMessageBox.critical(self, "Ошибка импорта", str(error))
 
     # Функция для выполнения команд в терминале и получения их вывода
     def run_command(self, command):
+        if command and command[0] == "sudo":
+            command = ["sudo", "-n", *command[1:]]
+
         return run(command, capture_output=True, text=True)
 
     # Функция для проверки наличия VPN в списке по его имени
@@ -286,18 +292,18 @@ class MainWindow(QMainWindow):
         # В зависимости от текущего статуса подключения и выбранного VPN выполняем соответствующие команды для включения или отключения VPN,
         # а также обновляем имя активного VPN и состояние кнопки
         if status == VPN_STATUS_OFF:
-            self.run_command(["sudo", "awg-quick", "up", f"{VPN_DIR}/{filename}"])
+            result = self.run_command(["sudo", "awg-quick", "up", f"{VPN_DIR}/{filename}"])
             self.active_vpn_name = filename
 
         elif status == VPN_STATUS_ON:
             if active_interface == selected_interface:
-                self.run_command(["sudo", "awg-quick", "down", f"{VPN_DIR}/{filename}"])
+                result = self.run_command(["sudo", "awg-quick", "down", f"{VPN_DIR}/{filename}"])
                 self.active_vpn_name = None
 
             elif active_interface is not None:
-                self.run_command(["sudo", "awg-quick", "down", f"{VPN_DIR}/{active_interface}.conf"])
+                result = self.run_command(["sudo", "awg-quick", "down", f"{VPN_DIR}/{active_interface}.conf"])
 
-                self.run_command(["sudo", "awg-quick", "up", f"{VPN_DIR}/{filename}"])
+                result = self.run_command(["sudo", "awg-quick", "up", f"{VPN_DIR}/{filename}"])
                 self.active_vpn_name = filename
 
         # Обновляем статус VPN и состояние кнопки для выбранной конфигурации
