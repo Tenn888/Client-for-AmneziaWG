@@ -2,11 +2,13 @@ from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, \
 QHBoxLayout, QVBoxLayout, QWidget, QTextEdit, QPushButton, QGroupBox, \
 QLabel, QFormLayout, QMessageBox
+from PyQt6.QtGui import QIcon
 from re import MULTILINE, search
 from sys import argv
 from subprocess import run
 from os import path
 from shutil import which
+from tempfile import NamedTemporaryFile
 
 import install_module, import_configs
 
@@ -40,9 +42,21 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(main_field)
 
         # Создание кнопки для импорта vpn и привязывание к кнопке функции для импорта 
-        self.button_add_vpn = QPushButton("Импортировать VPN")
-        self.button_add_vpn.setFixedSize(BUTTON_WIDTH, BUTTON_HEIGHT)
+        #self.button_add_vpn = QPushButton("Импортировать VPN")
+        self.button_add_vpn = QPushButton("")
+        self.button_add_vpn.setFixedSize(BUTTON_WIDTH // 3, BUTTON_HEIGHT)
+        self.button_add_vpn.setIcon(QIcon(path.join(WORK_DIR, "Images/Importing.png")))
         self.button_add_vpn.clicked.connect(self.import_vpn)
+
+        self.button_edit_vpn = QPushButton("")
+        self.button_edit_vpn.setFixedSize(BUTTON_WIDTH // 3, BUTTON_HEIGHT)
+        self.button_edit_vpn.setIcon(QIcon(path.join(WORK_DIR, "Images/Editing.png")))
+        self.button_edit_vpn.clicked.connect(self.edit_vpn)
+
+        self.button_delete_vpn = QPushButton("")
+        self.button_delete_vpn.setFixedSize(BUTTON_WIDTH // 3, BUTTON_HEIGHT)
+        self.button_delete_vpn.setIcon(QIcon(path.join(WORK_DIR, "Images/Deletion.png")))
+        self.button_delete_vpn.clicked.connect(self.import_vpn)
 
         # Создание виджета для отображения списка VPN и загрузка списка VPN из директории
         self.list_vpn = QListWidget()
@@ -64,11 +78,17 @@ class MainWindow(QMainWindow):
         self.button_vpn.setEnabled(False)
         self.button_vpn.clicked.connect(self.enable_and_disable_vpn)
 
+        self.vpn_buttons_layout = QHBoxLayout()
+        self.vpn_buttons_layout.addWidget(self.button_add_vpn)
+        self.vpn_buttons_layout.addWidget(self.button_edit_vpn)
+        self.vpn_buttons_layout.addWidget(self.button_delete_vpn)
+
         # Размещение виджетов в окне с помощью горизонтального и вертикального компоновщика
         # Левая панель со списком VPN и кнопкой добавления
         self.vpn_list_layout = QVBoxLayout()
         self.vpn_list_layout.addWidget(self.list_vpn)
-        self.vpn_list_layout.addWidget(self.button_add_vpn)
+        self.vpn_list_layout.addLayout(self.vpn_buttons_layout)
+
         self.layout = QHBoxLayout(main_field)
         self.layout.addLayout(self.vpn_list_layout)
 
@@ -113,6 +133,28 @@ class MainWindow(QMainWindow):
                 return
         except Exception as error:
             QMessageBox.critical(self, "Ошибка импорта", str(error))
+
+    # Функция для редактирования VPN
+    def edit_vpn(self):
+        # Получение имени выбранного VPN из списка и проверка его наличия
+        filename = self.selected_vpn_name()
+        if filename is None:
+            QMessageBox.warning(self, "Ошибка", "Выберите VPN для редактирования.")
+            return
+        
+        config_path = path.join(VPN_DIR, filename)
+        result = self.run_command(["sudo", "cat", config_path])
+        
+        with NamedTemporaryFile("w", encoding="utf-8") as temp_file:
+            temp_file.write(result)
+            self.run_command(["sudo", "cp", temp_file.name, config_path])
+
+
+        if result.returncode != 0:
+            QMessageBox.critical(self, "Ошибка сохранения", result.stderr)
+            return
+
+        QMessageBox.information(self, "Готово", "Конфигурация сохранена.")
 
     # Функция для выполнения команд в терминале и получения их вывода
     def run_command(self, command):
@@ -292,18 +334,18 @@ class MainWindow(QMainWindow):
         # В зависимости от текущего статуса подключения и выбранного VPN выполняем соответствующие команды для включения или отключения VPN,
         # а также обновляем имя активного VPN и состояние кнопки
         if status == VPN_STATUS_OFF:
-            result = self.run_command(["sudo", "awg-quick", "up", f"{VPN_DIR}/{filename}"])
+            self.run_command(["sudo", "awg-quick", "up", f"{VPN_DIR}/{filename}"])
             self.active_vpn_name = filename
 
         elif status == VPN_STATUS_ON:
             if active_interface == selected_interface:
-                result = self.run_command(["sudo", "awg-quick", "down", f"{VPN_DIR}/{filename}"])
+                self.run_command(["sudo", "awg-quick", "down", f"{VPN_DIR}/{filename}"])
                 self.active_vpn_name = None
 
             elif active_interface is not None:
-                result = self.run_command(["sudo", "awg-quick", "down", f"{VPN_DIR}/{active_interface}.conf"])
+                self.run_command(["sudo", "awg-quick", "down", f"{VPN_DIR}/{active_interface}.conf"])
 
-                result = self.run_command(["sudo", "awg-quick", "up", f"{VPN_DIR}/{filename}"])
+                self.run_command(["sudo", "awg-quick", "up", f"{VPN_DIR}/{filename}"])
                 self.active_vpn_name = filename
 
         # Обновляем статус VPN и состояние кнопки для выбранной конфигурации
@@ -312,11 +354,14 @@ class MainWindow(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(argv)
+    app.setWindowIcon(QIcon(path.join(WORK_DIR, "Images/AmneziaWG.png")))
 
     if not checking_installed_amneziawg():
         ix = install_module.InstallWindow()
+        ix.setWindowTitle("Установщик AmneziaWG")
         ix.show()
     else:
         ex = MainWindow()
+        ex.setWindowTitle("AmneziaWG")
         ex.show()
     app.exec()
