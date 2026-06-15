@@ -1,14 +1,17 @@
 from PyQt6.QtCore import QSize
 from PyQt6.QtWidgets import QApplication, QInputDialog, QLineEdit, QMainWindow, \
-QVBoxLayout, QWidget, QTextEdit, QPushButton
+QVBoxLayout, QWidget, QTextEdit, QPushButton, QMessageBox
 from os import chmod, environ, execv, path, remove
 from stat import S_IRUSR, S_IWUSR, S_IXUSR
 from subprocess import run
 from sys import executable, argv
 from tempfile import mkstemp
 
+import getting_password
+
 # Получение директории, в которой находится текущий скрипт
 WORK_DIR = path.dirname(path.abspath(__file__))
+
 
 class InstallWindow(QMainWindow):
     def __init__(self):
@@ -42,14 +45,14 @@ class InstallWindow(QMainWindow):
         install_script = f"{WORK_DIR}/install.sh"
 
         # Запрашиваем пароль sudo через Qt-диалог и проверяем его перед запуском установки
-        password = self.request_sudo_password()
+        password = getting_password.request_sudo_password()
         if password is None:
             return
 
         sudo_wrapper = self.create_sudo_wrapper()
 
         # Отображаем сообщение о начале установки и отключаем кнопку, чтобы предотвратить повторные нажатия
-        self.info_install.setText("Установка запущена.")
+        self.info_install.setText("Установка запущена...")
         self.button_install.setEnabled(False)
         QApplication.processEvents()
 
@@ -79,39 +82,6 @@ class InstallWindow(QMainWindow):
             self.info_install.setText(
                 f"Ошибка при установке AmneziaWG:\n{output}"
             )
-
-    # Функция для запроса и проверки пароля sudo через Qt-диалог перед запуском установки
-    def request_sudo_password(self):
-        for attempt in range(3):
-            password, ok = QInputDialog.getText(
-                self,
-                "Пароль sudo",
-                "Введите пароль sudo:",
-                QLineEdit.EchoMode.Password
-            )
-            if not ok:
-                return None
-
-            sudo_check = self.authenticate_sudo(password)
-            if sudo_check.returncode == 0:
-                return password
-
-            password = None
-            if attempt < 2:
-                self.info_install.setText("Неверный пароль sudo. Попробуйте еще раз.")
-                QApplication.processEvents()
-
-        self.info_install.setText("Ошибка авторизации sudo:\nневерный пароль.")
-        return None
-
-    # Функция для проверки пароля sudo
-    def authenticate_sudo(self, password):
-        return run(
-            ["sudo", "-k", "-S", "-p", "", "-v"],
-            input=f"{password}\n",
-            capture_output=True,
-            text=True
-        )
 
     # Функция для создания временного sudo-wrapper, который yay сможет использовать вместо обычного sudo
     def create_sudo_wrapper(self):

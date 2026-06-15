@@ -8,9 +8,8 @@ from sys import argv
 from subprocess import run
 from os import path
 from shutil import which
-from tempfile import NamedTemporaryFile
 
-import install_module, import_configs
+import install_module, import_configs, editing_configuration
 
 # Константы для отображения статуса VPN и управления им
 VPN_DIR = "/etc/amnezia/amneziawg"
@@ -142,26 +141,22 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Ошибка", "Выберите VPN для редактирования.")
             return
         
+        # Получение пути к конфигурационному файлу выбранного VPN
         config_path = path.join(VPN_DIR, filename)
-        result = self.run_command(["sudo", "cat", config_path])
-        
-        with NamedTemporaryFile("w", encoding="utf-8") as temp_file:
-            temp_file.write(result)
-            self.run_command(["sudo", "cp", temp_file.name, config_path])
 
-
-        if result.returncode != 0:
-            QMessageBox.critical(self, "Ошибка сохранения", result.stderr)
-            return
-
-        QMessageBox.information(self, "Готово", "Конфигурация сохранена.")
+        # Открытие окна редактирования конфигурационного файла VPN и обновление информации о VPN после сохранения изменений
+        try:
+            self.edit_window = editing_configuration.EditWindow(config_path, parent=self)
+            self.edit_window.show()
+        except Exception as error:
+            QMessageBox.critical(self, "Ошибка редактирования", str(error))
 
     # Функция для выполнения команд в терминале и получения их вывода
-    def run_command(self, command):
+    def run_command(self, command, input=None):
         if command and command[0] == "sudo":
             command = ["sudo", "-n", *command[1:]]
 
-        return run(command, capture_output=True, text=True)
+        return run(command, capture_output=True, text=True, input=input)
 
     # Функция для проверки наличия VPN в списке по его имени
     def list_has_vpn(self, filename):
