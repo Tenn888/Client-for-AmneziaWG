@@ -33,7 +33,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         # Настройка окна приложения
-        self.setWindowTitle("My App")
+        self.setWindowTitle("AmneziaWG")
         self.setMinimumSize(QSize(800,500))
 
         # Создание главного виджета и установка его в качестве центрального
@@ -41,7 +41,6 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(main_field)
 
         # Создание кнопки для импорта vpn и привязывание к кнопке функции для импорта 
-        #self.button_add_vpn = QPushButton("Импортировать VPN")
         self.button_add_vpn = QPushButton("")
         self.button_add_vpn.setFixedSize(BUTTON_WIDTH // 3, BUTTON_HEIGHT)
         self.button_add_vpn.setIcon(QIcon(path.join(WORK_DIR, "Images/Importing.png")))
@@ -55,7 +54,7 @@ class MainWindow(QMainWindow):
         self.button_delete_vpn = QPushButton("")
         self.button_delete_vpn.setFixedSize(BUTTON_WIDTH // 3, BUTTON_HEIGHT)
         self.button_delete_vpn.setIcon(QIcon(path.join(WORK_DIR, "Images/Deletion.png")))
-        self.button_delete_vpn.clicked.connect(self.import_vpn)
+        self.button_delete_vpn.clicked.connect(self.delete_vpn)
 
         # Создание виджета для отображения списка VPN и загрузка списка VPN из директории
         self.list_vpn = QListWidget()
@@ -72,7 +71,7 @@ class MainWindow(QMainWindow):
         self.status_vpn.setText(f'{VPN_STATUS.format(self.check_status_vpn())}')
 
         # Создание кнопки для включения/отключения VPN и настройка ее начального состояния
-        self.button_vpn = QPushButton("")
+        self.button_vpn = QPushButton(VPN_OFF)
         self.button_vpn.setFixedSize(BUTTON_WIDTH, BUTTON_HEIGHT)
         self.button_vpn.setEnabled(False)
         self.button_vpn.clicked.connect(self.enable_and_disable_vpn)
@@ -150,6 +149,45 @@ class MainWindow(QMainWindow):
             self.edit_window.show()
         except Exception as error:
             QMessageBox.critical(self, "Ошибка редактирования", str(error))
+    
+    # Функция для удаления VPN
+    def delete_vpn(self):
+        # Получение имени выбранного VPN из списка и проверка его наличия
+        filename = self.selected_vpn_name()
+        if filename is None:
+            QMessageBox.warning(self, "Ошибка", "Выберите VPN для редактирования.")
+            return
+        
+        # Получение пути к конфигурационному файлу выбранного VPN
+        config_path = path.join(VPN_DIR, filename)
+
+        # Окно подтверждения
+        reply = QMessageBox(
+            QMessageBox.Icon.Question,
+            "Подтверждение удаления",
+            f"Вы уверены, что хотите удалить '{filename}'?"
+        )
+
+        # Добавление кнопок "Да" и "Нет" в окно подтверждения
+        yes_button = reply.addButton("Да", QMessageBox.ButtonRole.YesRole)
+        reply.addButton("Нет", QMessageBox.ButtonRole.NoRole)
+
+        # Отображение окна подтверждения и ожидание ответа пользователя
+        reply.exec()
+
+        # Если пользователь нажал "Да", выполняем команду для удаления конфигурационного файла VPN и обновляем список VPN
+        if reply.clickedButton() == yes_button:
+            result = self.run_command(["sudo", "rm", "-f", config_path])
+            print(result)
+
+            if result.returncode == 0:
+                self.load_vpn_list()
+            else:
+                QMessageBox.critical(
+                    self,
+                    "Ошибка удаления",
+                    "Не удалось удалить файл конфигурации VPN."
+                )
 
     # Функция для выполнения команд в терминале и получения их вывода
     def run_command(self, command, input=None):

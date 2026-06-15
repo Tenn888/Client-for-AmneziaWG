@@ -79,7 +79,8 @@ Cmnd_Alias AMNEZIA_CLIENT = \
     /usr/bin/cat /etc/amnezia/amneziawg/*.conf, \
     /usr/bin/cp -f * /etc/amnezia/amneziawg, \
     /usr/bin/cp -f * /etc/amnezia/amneziawg/*.conf, \
-    /usr/bin/unzip -o * -d /etc/amnezia/amneziawg
+    /usr/bin/unzip -o * -d /etc/amnezia/amneziawg, \
+    /usr/bin/rm -f /etc/amnezia/amneziawg/*.conf
 
 $INSTALL_USER ALL=(root) NOPASSWD: AMNEZIA_CLIENT
 EOF
