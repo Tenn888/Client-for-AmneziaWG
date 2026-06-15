@@ -58,7 +58,8 @@ class MainWindow(QMainWindow):
 
         # Создание виджета для отображения списка VPN и загрузка списка VPN из директории
         self.list_vpn = QListWidget()
-        self.list_vpn.setFixedWidth(200)
+        # Сделать ширину списка равной общей ширине кнопок (BUTTON_WIDTH)
+        self.list_vpn.setFixedWidth(BUTTON_WIDTH + 10)
         self.load_vpn_list()
 
         # Инициализация переменной для хранения имени активного VPN
@@ -77,6 +78,7 @@ class MainWindow(QMainWindow):
         self.button_vpn.clicked.connect(self.enable_and_disable_vpn)
 
         self.vpn_buttons_layout = QHBoxLayout()
+        self.vpn_buttons_layout.setSpacing(6)
         self.vpn_buttons_layout.addWidget(self.button_add_vpn)
         self.vpn_buttons_layout.addWidget(self.button_edit_vpn)
         self.vpn_buttons_layout.addWidget(self.button_delete_vpn)
@@ -178,7 +180,6 @@ class MainWindow(QMainWindow):
         # Если пользователь нажал "Да", выполняем команду для удаления конфигурационного файла VPN и обновляем список VPN
         if reply.clickedButton() == yes_button:
             result = self.run_command(["sudo", "rm", "-f", config_path])
-            print(result)
 
             if result.returncode == 0:
                 self.load_vpn_list()
