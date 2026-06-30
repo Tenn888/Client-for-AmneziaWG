@@ -1,8 +1,8 @@
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget, \
 QHBoxLayout, QVBoxLayout, QWidget, QTextEdit, QPushButton, QGroupBox, \
-QLabel, QFormLayout, QMessageBox
-from PyQt6.QtGui import QIcon
+QLabel, QFormLayout, QMessageBox, QSystemTrayIcon, QMenu
+from PyQt6.QtGui import QIcon, QAction, QCursor
 from re import MULTILINE, search
 from sys import argv
 from subprocess import run
@@ -24,14 +24,19 @@ WORK_DIR = path.dirname(path.abspath(__file__))
 BUTTON_WIDTH = 200
 BUTTON_HEIGHT = 30
 
+tray = None
+tray_menu = None
+
 # Функция для проверки, установлен ли AmneziaWG, путем поиска его исполняемого файла в системе
 def checking_installed_amneziawg():
     return which("awg") is not None
 
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+
         # Настройка окна приложения
         self.setWindowTitle("AmneziaWG")
         self.setMinimumSize(QSize(800,500))
@@ -106,6 +111,44 @@ class MainWindow(QMainWindow):
 
         # Подключение сигнала клика по элементу списка VPN к функции загрузки информации о выбранном VPN
         self.list_vpn.itemClicked.connect(self.load_info_vpn)
+
+    def on_tray_activated(self, r):
+        # Проверяем, был ли совершен клик левой кнопкой мыши
+        if r == QSystemTrayIcon.ActivationReason.Trigger:
+            self.show_normal_and_raise()
+
+    def show_normal_and_raise(self):
+        # Показываем окно и выносим его на передний план
+        self.show()
+        self.raise_()
+        self.activateWindow()
+
+    def trey_icon(self):
+        global tray, tray_menu
+
+        tray = QSystemTrayIcon(app, icon=QIcon(path.join(WORK_DIR, "Images/AmneziaWG.png")))
+        tray_menu = QMenu()
+
+        tray.activated.connect(lambda r: self.on_tray_activated(r))
+
+        self.load_vpn_list()
+        for i in range(self.list_vpn.count()):
+            filename = self.list_vpn.item(i).text()
+            action = QAction(f"{filename}", tray_menu)
+            action.triggered.connect(lambda checked, f=filename: self.enable_and_disable_vpn(f))
+            tray_menu.addAction(action)
+        
+        tray_menu.addSeparator()
+
+        exit_action = QAction("Выход", tray_menu)
+        exit_action.triggered.connect(QApplication.quit)
+        tray_menu.addAction(exit_action)
+
+        #tray_menu.exec(QCursor.pos())
+
+        tray.setContextMenu(tray_menu)
+        tray.show()
+
 
     # Функция для импорта VPN из выбранного файла конфигурации и обновления списка VPN после импорта
     def import_vpn(self):
@@ -352,14 +395,15 @@ class MainWindow(QMainWindow):
             self.info_layout.removeWidget(widget)
             widget.deleteLater()
         self.info_widgets = []
-
+    
     # Функция для включения или отключения VPN в зависимости от текущего статуса подключения и выбранного VPN
-    def enable_and_disable_vpn(self):
+    def enable_and_disable_vpn(self, filename=False):
         # Получение имени выбранного VPN из списка и проверка его наличия
-        filename = self.selected_vpn_name()
-        if filename is None:
-            return
-
+        if filename is False:
+            filename = self.selected_vpn_name()
+            if filename is False:
+                return
+        
         # Получение текущего статуса VPN, имени активного интерфейса и имени интерфейса из выбранного файла конфигурации VPN
         status = self.check_status_vpn()
         active_interface = self.look_another_vpn()
@@ -388,6 +432,8 @@ class MainWindow(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(argv)
+    # Не закрывать приложение при закрытии последнего окна, чтобы трей оставался активен
+    app.setQuitOnLastWindowClosed(False)
     app.setWindowIcon(QIcon(path.join(WORK_DIR, "Images/AmneziaWG.png")))
 
     if not checking_installed_amneziawg():
@@ -397,5 +443,6 @@ if __name__ == '__main__':
     else:
         ex = MainWindow()
         ex.setWindowTitle("AmneziaWG")
+        ex.trey_icon()
         ex.show()
     app.exec()
