@@ -7,9 +7,8 @@ from re import MULTILINE, search
 from sys import argv
 from subprocess import run
 from os import path
-from shutil import which
 
-import install_module, import_configs, editing_configuration
+import import_configs, editing_configuration
 
 # Константы для отображения статуса VPN и управления им
 VPN_DIR = "/etc/amnezia/amneziawg"
@@ -26,11 +25,6 @@ BUTTON_HEIGHT = 30
 
 tray = None
 tray_menu = None
-
-# Функция для проверки, установлен ли AmneziaWG, путем поиска его исполняемого файла в системе
-def checking_installed_amneziawg():
-    return which("awg") is not None
-
 
 
 class MainWindow(QMainWindow):
@@ -143,8 +137,6 @@ class MainWindow(QMainWindow):
         exit_action = QAction("Выход", tray_menu)
         exit_action.triggered.connect(QApplication.quit)
         tray_menu.addAction(exit_action)
-
-        #tray_menu.exec(QCursor.pos())
 
         tray.setContextMenu(tray_menu)
         tray.show()
@@ -436,13 +428,12 @@ if __name__ == '__main__':
     app.setQuitOnLastWindowClosed(False)
     app.setWindowIcon(QIcon(path.join(WORK_DIR, "Images/AmneziaWG.png")))
 
-    if not checking_installed_amneziawg():
-        ix = install_module.InstallWindow()
-        ix.setWindowTitle("Установщик AmneziaWG")
-        ix.show()
-    else:
-        ex = MainWindow()
-        ex.setWindowTitle("AmneziaWG")
-        ex.trey_icon()
+    # Проверка аргумента для запуска в фоне (в трее)
+    start_minimized = '--minimized' in argv or '--tray' in argv
+
+    ex = MainWindow()
+    ex.setWindowTitle("AmneziaWG")
+    ex.trey_icon()
+    if not start_minimized:
         ex.show()
     app.exec()
